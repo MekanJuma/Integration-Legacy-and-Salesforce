@@ -1,5 +1,5 @@
 public class OrgPersonEventProcessor {
-	private List<OrgPersonEvent__e> events;
+    private List<OrgPersonEvent__e> events;
     private Map<String, Account> accountsToUpsert;
     private Map<String, Contact> contactsToUpsert;
     private Map<String, Set<PayloadParser.SourceData>> accountSources;

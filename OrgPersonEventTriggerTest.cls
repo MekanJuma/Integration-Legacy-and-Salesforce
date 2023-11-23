@@ -26,7 +26,7 @@ private class OrgPersonEventTriggerTest {
         System.assertNotEquals(null, createdContact, 'Contact should be created.');
 
         List<AccountContactRelation> acrList = [SELECT Id, AccountId, ContactId FROM AccountContactRelation WHERE ContactId = :createdContact.Id];
-		System.assertEquals(2, acrList.size(), 'Two AccountContactRelations should be created');
+	System.assertEquals(2, acrList.size(), 'Two AccountContactRelations should be created');
 
         List<Source__c> sourceList = [SELECT Id, Account__c, Source_System__c, Source_System_Id__c FROM Source__c WHERE Account__c = :createdAccount.Id];
         System.assertEquals(3, sourceList.size(), 'Three Source__c records should be created.');
