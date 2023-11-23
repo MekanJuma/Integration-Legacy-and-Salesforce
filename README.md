@@ -3,6 +3,7 @@
 
 # Assignment
 Integration between Legacy and Salesforce using platform event. Use Apex trigger as the subscriber. You can use Workbench or Postman to trigger events to the event bus. Attached are the payload for Organization and Person. External IDs are "Customerld" for Account and "PersonID" for Contact object.
+
 Design a solution that will parse Customer Payload. Upsert account record based on CustomerID. Source information will be a related list with the Account object. While adding Sources to a related list it should not create duplicate sources.
 Upsert Person payload. Upsert contact record based on PersonID. "Relationship" represents a person who will be working with multiple Customers. A customer can work with multiple persons.
 Error handling and test classes are a must.
