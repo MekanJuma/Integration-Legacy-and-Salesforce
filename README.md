@@ -13,6 +13,7 @@ The solution integrates a legacy system with Salesforce using a platform event, 
 **1. Platform Event Setup:**
 - **Name**: OrgPersonEvent.
 - **Field**: Payload__c (Long Text) to store JSON data.
+![Platform Event](https://github.com/MekanJuma/Integration-Legacy-and-Salesforce/blob/main/screenshots/platform%20event.PNG)
 
 **2. Custom Object for Sources:**
 - **Name**: Source__c.
@@ -35,6 +36,8 @@ The solution integrates a legacy system with Salesforce using a platform event, 
 - Object Name: "Trigger_Settings"
 - Custom Field: Is Trigger Active (Checkbox)
 - Click Manage, and create a new org-wide default, and check the "Is Trigger Active" checkbox to enable the trigger.
+![Custom Settings 1](https://github.com/MekanJuma/Integration-Legacy-and-Salesforce/blob/main/screenshots/custrom%20settings%201.PNG)
+![Custom Settings 2](https://github.com/MekanJuma/Integration-Legacy-and-Salesforce/blob/main/screenshots/custom%20settings%202.PNG)
 
 **7. Apex Trigger:**
 - On OrgPersonEvent__e to handle the incoming event data.
@@ -66,6 +69,7 @@ The solution integrates a legacy system with Salesforce using a platform event, 
 "Payload__c": "{\r\n   \"Person\":{\r\n      \"Header\":{\r\n         \"EventType\":\"Update\",\r\n         \"PersonID\":\"1049297410\",\r\n         \"PartyType\":\"Person\",\r\n         \"EventDTM\":\"2022-02-24T18:21:56.588Z\"\r\n      },\r\n      \"BaseObject\":{\r\n         \"MidName\":\"Jumayev\",\r\n         \"FirstName\":\"Mekan\",\r\n         \"PersonID\":\"1049297410\"\r\n      },\r\n      \"Relationship\":[\r\n         {\r\n            \"CustomerID\":\"4232323233\",\r\n            \"RelationshipType\":\"CustomerContact\",\r\n            \"PersonID\":\"1049297410\"\r\n         },\r\n         {\r\n            \"CustomerID\":\"109109104\",\r\n            \"RelationshipType\":\"CustomerContact\",\r\n            \"PersonID\":\"1049297410\"\r\n         }\r\n      ]\r\n   }\r\n}\r\n"
 }
 ```
+![Workbench](https://github.com/MekanJuma/Integration-Legacy-and-Salesforce/blob/main/screenshots/workbench.PNG)
 
 # Solution Workflow
 **Customer Data Handling**
