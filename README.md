@@ -91,4 +91,24 @@ The solution integrates a legacy system with Salesforce using a platform event, 
 - Contacts must not be private (must be associated with an Account) and cannot be directly associated with the same Account they are indirectly related to via AccountContactRelation.  
 - When Contacts to Multiple Accounts is enabled, an Account Contact Relationship record is created for each contact with a primary account.
 
+## Author
+
+**Mekan Jumayev**
+
+I'm a Salesforce engineer.
+- Over 4 years of experience in SFDC Salesforce.com CRM platform
+- Hands-on experience in application design, software development life cycle (SDLC), development and Implementation of various IT applications.
+- Certified Salesforce Developer with experience in the Salesforce ecosystem as a hands-on Salesforce Developer using VisualForce, Apex, LWC, and Aura.
+- Hands-on Web service integration using SOAP, REST, and salesforce API, SOQL, and SOSL.
+- Hands-on Lightning Component Framework experience and building Lightning components.
+
+
+For more information or to view my other projects, visit my [LinkedIn profile](https://www.linkedin.com/in/mekan-jumayev/).
+
+Feel free to reach out to me at [contact@mikejuma.com](mailto:contact@mikejuma.com) for any queries or collaboration.
+
+---
+
+Project Repository: [Integration between Legacy system and Salesforce](https://github.com/MekanJuma/Integration-Legacy-and-Salesforce)
+
 
