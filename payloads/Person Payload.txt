@@ -1,0 +1,27 @@
+{
+   "Person":{
+      "Header":{
+         "EventType":"Update",
+         "PersonID":"104929748",
+         "PartyType":"Person",
+         "EventDTM":"2022-02-24T18:21:56.588Z"
+      },
+      "BaseObject":{
+         "MidName":"Zamir",
+         "FirstName":"Omar",
+         "PersonID":"104929748"
+      },
+      "Relationship":[
+         {
+            "CustomerID":"104648687",
+            "RelationshipType":"CustomerContact",
+            "PersonID":"104929748"
+         },
+         {
+            "CustomerID":"104736896",
+            "RelationshipType":"CustomerContact",
+            "PersonID":"104929748"
+         }
+      ]
+   }
+}

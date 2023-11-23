@@ -1,0 +1,34 @@
+{
+   "Customer":{
+      "Header":{
+         "CustomerID":"104736896",
+         "EventType":"Update",
+         "PartyType":"Customer"
+      },
+      "BaseObject":{
+         "OutOfBusinessDate":"",
+         "Name":"MAINER AUTO GROUP II LP",
+         "CustomerID":"104736896"
+      },
+      "Phone":[
+         {
+            "PhoneType":"Main Phone",
+            "PhoneNumber":"(918) 367-3373"
+         }
+      ],
+      "Sources":[
+         {
+            "SourceSystem": "TLC",
+            "SourceSystemID": "50581"
+         }, 
+         {
+            "SourceSystem": "BTC",
+            "SourceSystemID": "131346506467498"
+         },          
+         {
+            "SourceSystem": "GLC",
+            "SourceSystemID": "6046656"
+         }
+      ]
+   }
+}
