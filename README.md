@@ -1,4 +1,5 @@
 # Integration between the Legacy system and Salesforce
+![Design](https://github.com/MekanJuma/Integration-Legacy-and-Salesforce/blob/main/screenshots/main.png)
 
 # Assignment
 Integration between Legacy and Salesforce using platform event. Use Apex trigger as the subscriber. You can use Workbench or Postman to trigger events to the event bus. Attached are the payload for Organization and Person. External IDs are "Customerld" for Account and "PersonID" for Contact object.
