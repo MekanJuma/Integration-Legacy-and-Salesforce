@@ -31,11 +31,11 @@ public class OrgPersonEventProcessor {
 
         try {
             List<Account> accountList = new List<Account>(accountsToUpsert.values());
-			List<Database.UpsertResult> accountUpsertResults = Database.upsert(accountList, Account.Fields.Customer_ID__c, false);
-			validateUpsertResult('Account', accountUpsertResults);
+	    List<Database.UpsertResult> accountUpsertResults = Database.upsert(accountList, Account.Fields.Customer_ID__c, false);
+	    validateUpsertResult('Account', accountUpsertResults);
             
             List<Contact> contactList = new List<Contact>(contactsToUpsert.values());
-			List<Database.UpsertResult> contactUpsertResults = Database.upsert(contactList, Contact.Fields.Person_Id__c, false);
+	    List<Database.UpsertResult> contactUpsertResults = Database.upsert(contactList, Contact.Fields.Person_Id__c, false);
             validateUpsertResult('Contact', contactUpsertResults);
             
             System.enqueueJob(new SourceHandlerQueueable(customerIds, accountsToUpsert, accountSources));
