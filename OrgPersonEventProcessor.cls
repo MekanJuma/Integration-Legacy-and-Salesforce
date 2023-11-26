@@ -17,15 +17,29 @@ public class OrgPersonEventProcessor {
         personIds = new Set<String>();
     }
     
+    private static void validateUpsertResult(String listName, List<Database.UpsertResult> results) {
+        for (Database.UpsertResult result : results) {
+            if (!result.isSuccess()) {
+                Logger.log('Error upserting ' + listName + ': ' + result.getErrors()[0].getMessage());
+            }
+        }
+    }
+    
     public void process() {
         // Parsing events and preparing data for processing
         parseEvents();
 
         try {
-            Database.upsert(new List<Account>(accountsToUpsert.values()), Account.Fields.Customer_ID__c, false);
-            Database.upsert(new List<Contact>(contactsToUpsert.values()), Contact.Fields.Person_Id__c, false);
-            handleSources(customerIds, accountsToUpsert, accountSources);
-            handleACRs(personIds, contactsToUpsert, contactRelationships);
+            List<Account> accountList = new List<Account>(accountsToUpsert.values());
+			List<Database.UpsertResult> accountUpsertResults = Database.upsert(accountList, Account.Fields.Customer_ID__c, false);
+			validateUpsertResult('Account', accountUpsertResults);
+            
+            List<Contact> contactList = new List<Contact>(contactsToUpsert.values());
+			List<Database.UpsertResult> contactUpsertResults = Database.upsert(contactList, Contact.Fields.Person_Id__c, false);
+            validateUpsertResult('Contact', contactUpsertResults);
+            
+            System.enqueueJob(new SourceHandlerQueueable(customerIds, accountsToUpsert, accountSources));
+            System.enqueueJob(new ACRHandlerQueueable(personIds, contactsToUpsert, contactRelationships));
         } catch (Exception e) {
             Logger.logException(e);
         }
@@ -66,89 +80,6 @@ public class OrgPersonEventProcessor {
         }
     }
     
-    private static void handleSources(Set<String> customerIds, Map<String, Account> accountsMap, Map<String, Set<PayloadParser.SourceData>> accountSources) {
-        Map<String, Source__c> existingSourcesMap = new Map<String, Source__c>();
-        List<Source__c> sourcesToInsert = new List<Source__c>();
-    
-        for (Source__c source : [SELECT Id, Account__r.Customer_ID__c, Source_System_Id__c FROM Source__c WHERE Account__r.Customer_ID__c IN :customerIds]) {
-            existingSourcesMap.put(source.Account__r.Customer_ID__c + '-' + source.Source_System_Id__c, source);
-        }
-    
-        for (String customerId : accountSources.keySet()) {
-            for (PayloadParser.SourceData sourceData : accountSources.get(customerId)) {
-                String compositeKey = customerId + '-' + sourceData.sourceSystemId;
-                if (!existingSourcesMap.containsKey(compositeKey)) {
-                    sourcesToInsert.add(new Source__c(
-                        Account__c = accountsMap.get(customerId).Id,
-                        Source_System__c = sourceData.sourceSystem,
-                        Source_System_Id__c = sourceData.sourceSystemId
-                    ));
-                }
-            }
-        }
-    
-        insert sourcesToInsert;
-    }
-    
-    private static void handleACRs(Set<String> personIds, Map<String, Contact> contactsMap, Map<String, Set<PayloadParser.RelationshipData>> contactRelationships) {
-        Map<String, AccountContactRelation> existingACRMap = new Map<String, AccountContactRelation>();
-        List<AccountContactRelation> acrToInsert = new List<AccountContactRelation>();
-        Set<String> neededCustomerIds = new Set<String>();
-        Map<String, Id> accountIdMap = new Map<String, Id>();
-    
-        for (String personId : contactRelationships.keySet()) {
-            for (PayloadParser.RelationshipData relData : contactRelationships.get(personId)) {
-                neededCustomerIds.add(relData.customerId);
-            }
-        }
-    
-        for (Account acc : [SELECT Id, Customer_ID__c FROM Account WHERE Customer_ID__c IN :neededCustomerIds]) {
-            accountIdMap.put(acc.Customer_ID__c, acc.Id);
-        }
-    
-        List<Account> accountsToInsert = new List<Account>();
-        for (String customerId : neededCustomerIds) {
-            if (!accountIdMap.containsKey(customerId)) {
-                Account newAccount = new Account(Name = 'Account: ' + customerId, Customer_ID__c = customerId);
-                accountsToInsert.add(newAccount);
-                accountIdMap.put(customerId, newAccount.Id); // Placeholder ID
-            }
-        }
-        
-        if (!accountsToInsert.isEmpty()) {
-            insert accountsToInsert;
-            for (Account acc : accountsToInsert) {
-                accountIdMap.put(acc.Customer_ID__c, acc.Id);
-            }
-        }
-
-        for (AccountContactRelation acr : [SELECT Id, AccountId, ContactId FROM AccountContactRelation WHERE ContactId IN :personIds]) {
-            existingACRMap.put(acr.AccountId + '-' + acr.ContactId, acr);
-        }
-		
-        List<String> validRoles = getValidRoles();
-        for (String personId : contactRelationships.keySet()) {
-            for (PayloadParser.RelationshipData relData : contactRelationships.get(personId)) {
-                Id accountIdForRelation = accountIdMap.get(relData.customerId);
-        		Contact contactForRelation = contactsMap.get(personId);
-                String acrKey = accountIdMap.get(relData.customerId) + '-' + personId;
-                
-                if (contactForRelation.AccountId == accountIdForRelation || existingACRMap.containsKey(acrKey)) {
-                    continue;
-                }
-                
-                String role = validRoles.contains(relData.relationshipType) ? relData.relationshipType : 'Other';
-                acrToInsert.add(new AccountContactRelation(
-                    AccountId = accountIdForRelation,
-                    ContactId = contactForRelation.Id,
-                    Roles = role
-                ));
-            }
-        }
-
-        insert acrToInsert;
-    }
-
     private static Id getLegacyRecordType() {
         return [select Id, Name from RecordType where SobjectType = 'Contact' and DeveloperName = 'Legacy_System' Limit 1].Id;
     }
@@ -168,15 +99,130 @@ public class OrgPersonEventProcessor {
             
             primaryAccountId = newAccount.Id;
         }
-		return primaryAccountId;
+	return primaryAccountId;
     }
     
-    private static List<String> getValidRoles() {
-        List<String> validRoles = new List<String>();
-        Schema.DescribeFieldResult fieldResult = AccountContactRelation.Roles.getDescribe();
-        for (Schema.PicklistEntry entry : fieldResult.getPicklistValues()) {
-            validRoles.add(entry.getValue());
+    public class SourceHandlerQueueable implements Queueable {
+        private Set<String> customerIds;
+        private Map<String, Account> accountsMap;
+        private Map<String, Set<PayloadParser.SourceData>> accountSources;
+
+        public SourceHandlerQueueable(Set<String> customerIds, Map<String, Account> accountsMap, Map<String, Set<PayloadParser.SourceData>> accountSources) {
+            this.customerIds = customerIds;
+            this.accountsMap = accountsMap;
+            this.accountSources = accountSources;
         }
-        return validRoles;
+
+        public void execute(QueueableContext context) {
+            handleSources(customerIds, accountsMap, accountSources);
+        }
+        
+        private void handleSources(Set<String> customerIds, Map<String, Account> accountsMap, Map<String, Set<PayloadParser.SourceData>> accountSources) {
+            Map<String, Source__c> existingSourcesMap = new Map<String, Source__c>();
+            List<Source__c> sourcesToInsert = new List<Source__c>();
+        
+            for (Source__c source : [SELECT Id, Account__r.Customer_ID__c, Source_System_Id__c FROM Source__c WHERE Account__r.Customer_ID__c IN :customerIds]) {
+                existingSourcesMap.put(source.Account__r.Customer_ID__c + '-' + source.Source_System_Id__c, source);
+            }
+        
+            for (String customerId : accountSources.keySet()) {
+                for (PayloadParser.SourceData sourceData : accountSources.get(customerId)) {
+                    String compositeKey = customerId + '-' + sourceData.sourceSystemId;
+                    if (!existingSourcesMap.containsKey(compositeKey)) {
+                        sourcesToInsert.add(new Source__c(
+                            Account__c = accountsMap.get(customerId).Id,
+                            Source_System__c = sourceData.sourceSystem,
+                            Source_System_Id__c = sourceData.sourceSystemId
+                        ));
+                    }
+                }
+            }
+        
+            insert sourcesToInsert;
+        }
+    }
+    
+    public class ACRHandlerQueueable implements Queueable {
+        private Set<String> personIds;
+        private Map<String, Contact> contactsMap;
+        private Map<String, Set<PayloadParser.RelationshipData>> contactRelationships;
+
+        public ACRHandlerQueueable(Set<String> personIds, Map<String, Contact> contactsMap, Map<String, Set<PayloadParser.RelationshipData>> contactRelationships) {
+            this.personIds = personIds;
+            this.contactsMap = contactsMap;
+            this.contactRelationships = contactRelationships;
+        }
+
+        public void execute(QueueableContext context) {
+            handleACRs(personIds, contactsMap, contactRelationships);
+        }
+        
+        private List<String> getValidRoles() {
+            List<String> validRoles = new List<String>();
+            Schema.DescribeFieldResult fieldResult = AccountContactRelation.Roles.getDescribe();
+            for (Schema.PicklistEntry entry : fieldResult.getPicklistValues()) {
+                validRoles.add(entry.getValue());
+            }
+            return validRoles;
+        }
+        
+        private void handleACRs(Set<String> personIds, Map<String, Contact> contactsMap, Map<String, Set<PayloadParser.RelationshipData>> contactRelationships) {
+            Map<String, AccountContactRelation> existingACRMap = new Map<String, AccountContactRelation>();
+            List<AccountContactRelation> acrToInsert = new List<AccountContactRelation>();
+            Set<String> neededCustomerIds = new Set<String>();
+            Map<String, Id> accountIdMap = new Map<String, Id>();
+        
+            for (String personId : contactRelationships.keySet()) {
+                for (PayloadParser.RelationshipData relData : contactRelationships.get(personId)) {
+                    neededCustomerIds.add(relData.customerId);
+                }
+            }
+        
+            for (Account acc : [SELECT Id, Customer_ID__c FROM Account WHERE Customer_ID__c IN :neededCustomerIds]) {
+                accountIdMap.put(acc.Customer_ID__c, acc.Id);
+            }
+        
+            List<Account> accountsToInsert = new List<Account>();
+            for (String customerId : neededCustomerIds) {
+                if (!accountIdMap.containsKey(customerId)) {
+                    Account newAccount = new Account(Name = 'Account: ' + customerId, Customer_ID__c = customerId);
+                    accountsToInsert.add(newAccount);
+                    accountIdMap.put(customerId, newAccount.Id); // Placeholder ID
+                }
+            }
+            
+            if (!accountsToInsert.isEmpty()) {
+                insert accountsToInsert;
+                for (Account acc : accountsToInsert) {
+                    accountIdMap.put(acc.Customer_ID__c, acc.Id);
+                }
+            }
+    
+            for (AccountContactRelation acr : [SELECT Id, AccountId, ContactId FROM AccountContactRelation WHERE ContactId IN :personIds]) {
+                existingACRMap.put(acr.AccountId + '-' + acr.ContactId, acr);
+            }
+            
+            List<String> validRoles = getValidRoles();
+            for (String personId : contactRelationships.keySet()) {
+                for (PayloadParser.RelationshipData relData : contactRelationships.get(personId)) {
+                    Id accountIdForRelation = accountIdMap.get(relData.customerId);
+                    Contact contactForRelation = contactsMap.get(personId);
+                    String acrKey = accountIdMap.get(relData.customerId) + '-' + personId;
+                    
+                    if (contactForRelation.AccountId == accountIdForRelation || existingACRMap.containsKey(acrKey)) {
+                        continue;
+                    }
+                    
+                    String role = validRoles.contains(relData.relationshipType) ? relData.relationshipType : 'Other';
+                    acrToInsert.add(new AccountContactRelation(
+                        AccountId = accountIdForRelation,
+                        ContactId = contactForRelation.Id,
+                        Roles = role
+                    ));
+                }
+            }
+    
+            insert acrToInsert;
+        }
     }
 }
